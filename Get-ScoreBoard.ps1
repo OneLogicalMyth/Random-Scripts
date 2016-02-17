@@ -46,3 +46,55 @@ param([string]$TeamName=[string]::Empty,[int]$SelectTop=0)
     }
 
 }
+
+
+Function Invoke-ScoreBoardSummary {
+param(
+        [string]$TeamName,
+        [ValidateSet('html', 'text', IgnoreCase = $true)]
+        [string]$Format='text',
+        [int]$SelectTop=10
+    )
+
+    Begin {
+
+        $Results      = Get-ScoreBoard -SelectTop 10
+        $TeamResults  = Get-ScoreBoard -TeamName $TeamName
+        $TeamPosition = $TeamResults[0].Position
+        $TeamScore    = $TeamResults[0].Score
+
+    }
+
+    process {
+
+    
+        if($Format -eq 'text'){
+            $Output = "Internetwache CTF 2016 - Score Board Update`r`n`r`n"
+            $Output += "-- Top $SelectTop Teams --`r`n"
+            $Output += "------------------"
+            $Output += $Results | Format-Table -AutoSize | Out-String
+            $Output += "-- $TeamName --`r`n"
+            $Output += (1..($TeamName.Length + 6) | %{ '-' }) -join ''
+            $Output += "`r`n"
+            $Output += "Current Position: $TeamPosition`r`n"
+            $Output += "Current Score:    $TeamScore"
+        }
+        if($Format -eq 'html'){
+            $Output = "<strong>Internetwache CTF 2016 &#45; Score Board Update</strong><br><br>"
+            $Output += "<strong><em>Top 10 Teams</em></strong><br>"
+            $Output += $Results | ConvertTo-Html -Fragment | Out-String
+            $Output += "<br>"
+            $Output += "<strong><em>$TeamName</em></strong><br>"
+            $Output += "Current Position:&nbsp;<strong>$TeamPosition</strong><br>"
+            $Output += "Current Score:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>$TeamScore</strong>"
+        }
+         
+    }
+
+    end {
+
+        $Output
+
+    }
+
+}
