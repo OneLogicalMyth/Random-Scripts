@@ -93,6 +93,8 @@ if($LASTEXITCODE -eq 0){
     $FinalOutput += New-SecObj -SettingType AuditPolicy -Name AuditSystemEvents -RawValue ([int]($AuditPolicy.AuditSystemEvents)) -Value (AuditType ([int]($AuditPolicy.AuditSystemEvents)))
 
     # Security Options (work in progress)
+
+
     #$PasswordPol.NewAdministratorName = $PasswordPol.NewAdministratorName.Replace('"','')
     #$PasswordPol.NewGuestName = $PasswordPol.NewGuestName.Replace('"','')
 
@@ -103,11 +105,7 @@ if($LASTEXITCODE -eq 0){
     Remove-Item $ExportedPolicy
 }else{
 
-    if($LASTEXITCODE -eq 740){
-        # Failed to export
-        Write-Error 'You need to be running as administrator' -TargetObject secedit
-    }else{
-        # Failed to export
-        Write-Error 'Exporting the configuration has failed' -TargetObject secedit
-    }
+    # Handle secedit error
+    Write-Error "secedit failed to run - $(([ComponentModel.Win32Exception]$LASTEXITCODE).Message)" -TargetObject secedit -ErrorId $LASTEXITCODE
+
 }
