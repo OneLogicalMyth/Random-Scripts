@@ -28,11 +28,12 @@ function Get-IniContent ($filePath)
 
 # Function to create a new security object
 Function New-SecObj {
-Param($SettingType,$Name,$RawValue,$Value)
+Param($SettingType,$Name,$DisplayName,$RawValue,$Value)
 
-    $Out = '' | Select-Object SettingType, Name, RawValue, Value
+    $Out = '' | Select-Object SettingType, Name, DisplayName, RawValue, Value
     $Out.SettingType = $SettingType
     $Out.Name = $Name
+    $Out.DisplayName = $DisplayName
     $Out.RawValue = $RawValue
     $Out.Value = $Value
     $Out
@@ -93,10 +94,42 @@ if($LASTEXITCODE -eq 0){
     $FinalOutput += New-SecObj -SettingType AuditPolicy -Name AuditSystemEvents -RawValue ([int]($AuditPolicy.AuditSystemEvents)) -Value (AuditType ([int]($AuditPolicy.AuditSystemEvents)))
 
     # Security Options (work in progress)
+    function EorD {
+    param($RawValue)
 
+        switch($RawValue)
+        {
+            0 {"Disabled"}
+            1 {"Enabled"}
+        }
 
-    #$PasswordPol.NewAdministratorName = $PasswordPol.NewAdministratorName.Replace('"','')
-    #$PasswordPol.NewGuestName = $PasswordPol.NewGuestName.Replace('"','')
+    }
+
+    # Process MS account block status
+	if($SecPol.'Registry Values'.'MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\NoConnectedUser'){
+		$BlockMSAccountsRaw = $SecPol.'Registry Values'.'MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\System\NoConnectedUser'.Split(',')[1]
+		$BlockMSAccountsValue = switch($BlockMSAccountsRaw)
+	    {
+			0 {"This policy is disabled"}
+			1 {"Users can't add Microsoft accounts"}
+			3 {"Users can't add or log on with Microsoft accounts"}
+		}
+	}else{
+		$BlockMSAccountsRaw = -1
+		$BlockMSAccountsValue = "Not Defined"
+	}
+	
+    # console password use
+    $LimitBlankPasswordUse = $SecPol.'Registry Values'.'MACHINE\System\CurrentControlSet\Control\Lsa\LimitBlankPasswordUse'.Split(',')[1]
+  
+
+    $FinalOutput += New-SecObj -SettingType SecurityOptions:Accounts -Name AdminAccountStatus -DisplayName 'Administrator account status' -RawValue ([int]($SystemAccess.EnableAdminAccount)) -Value (EorD ([int]($SystemAccess.EnableAdminAccount)))
+    $FinalOutput += New-SecObj -SettingType SecurityOptions:Accounts -Name BlockMSAccounts -DisplayName 'Block Microsoft accounts' -RawValue ([int]($BlockMSAccountsRaw)) -Value $BlockMSAccountsValue
+    $FinalOutput += New-SecObj -SettingType SecurityOptions:Accounts -Name GuestAccountStatus -DisplayName 'Guest account status' -RawValue ([int]($SystemAccess.EnableGuestAccount)) -Value (EorD ([int]($SystemAccess.EnableGuestAccount)))
+    $FinalOutput += New-SecObj -SettingType SecurityOptions:Accounts -Name LimitBlankPasswordUse -DisplayName 'Limit local account use of blank passwords to console logon only' -RawValue ([int]($LimitBlankPasswordUse)) -Value (EorD ([int]($LimitBlankPasswordUse)))
+    $FinalOutput += New-SecObj -SettingType SecurityOptions:Accounts -Name RenameAdministrator -DisplayName 'Rename administrator account' -RawValue ([string]($SystemAccess.NewAdministratorName).Replace('"','').trim()) -Value ([string]($SystemAccess.NewAdministratorName).Replace('"','').trim())
+    $FinalOutput += New-SecObj -SettingType SecurityOptions:Accounts -Name RenameGuest -DisplayName 'Rename guest account' -RawValue ([string]($SystemAccess.NewGuestName).Replace('"','').trim()) -Value ([string]($SystemAccess.NewGuestName).Replace('"','').trim())
+
 
     # Output cleaned password policy
     $FinalOutput
