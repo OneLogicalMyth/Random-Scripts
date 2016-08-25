@@ -102,6 +102,12 @@ if($LASTEXITCODE -eq 0){
     # Clean up remove exported policy
     Remove-Item $ExportedPolicy
 }else{
-    # Failed to export
-    Write-Error 'Exporting the configuration has failed' -TargetObject secedit
+
+    if($LASTEXITCODE -eq 740){
+        # Failed to export
+        Write-Error 'You need to be running as administrator' -TargetObject secedit
+    }else{
+        # Failed to export
+        Write-Error 'Exporting the configuration has failed' -TargetObject secedit
+    }
 }
