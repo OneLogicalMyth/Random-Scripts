@@ -17,7 +17,7 @@ SELECT '2.8' as 'CIS Benchmark Ref', name, CAST(value as int) as value_configure
 
 
 --Will display nothing if no databases are set to ON
-SELECT '2.9' as 'CIS Benchmark Ref', name FROM sys.configurations WHERE is_trustworthy_on = 1 AND name != 'msdb' AND state = 0 ;
+SELECT '2.9' as 'CIS Benchmark Ref', name FROM sys.databases WHERE is_trustworthy_on = 1 AND name != 'msdb' AND state = 0 ;
 
 
 --very rarely works
