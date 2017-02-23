@@ -22,7 +22,7 @@ if ($OSVersion.CompareTo($WindowsVista) -ge 0)
     <Select Path="Security">
 					*[System[(EventID=4769)]]
 						and
-					*[EventData[Data[@Name="TargetUserName"]!='$username']]
+					*[EventData[Data[@Name="TargetUserName"]='$username']]
 			</Select>
   </Query>
 </QueryList>
