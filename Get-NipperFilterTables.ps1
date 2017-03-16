@@ -2,8 +2,10 @@
 # 16/03/2017
 # dirty script to extract Nipper filter tables as PS object, so you can export to CSV or HTML etc.
 
+
+
 Function Get-NipperFilterTables {
-param($InputFolder,[switch]$RawOutput)
+param($InputFolder,$OutputFolder=$false)
 
     begin
     {
@@ -16,10 +18,17 @@ param($InputFolder,[switch]$RawOutput)
         }
         catch
         {
-            Write-Error 'InputFolder not found.'
-            return
+            throw 'InputFolder not found.'
         }
         
+        if($OutputFolder)
+        {
+            if(-not (Test-Path $OutputFolder))
+            {
+                throw "$OutputFolder - path not found."
+            }
+        }
+                
         Function Get-ItemData {
         param($node)
             if($node.'#text')
@@ -31,21 +40,68 @@ param($InputFolder,[switch]$RawOutput)
         }
     
         Function Build-NipperTable {
-        param($Tables)
+        param($Tables,$Title)
         
-            Foreach($Table IN $Tables)
+            if(@($Tables).count -eq 0)
+            {
+                return
+            }
+            
+            # Convert XML mess to PS object
+            $Results = Foreach($Table IN $Tables)
             {
                 $Headings = $Table.headings.heading
                 Foreach($Row IN $Table.tablebody.tablerow)
                 {
                     $Out = '' | Select-Object $Headings
                     0..(@($Headings).count - 1) | %{ $Out.$($Headings[$_]) = (Get-ItemData ($Row.tablecell[$_].item)) }
-                    $Out | Select-Object @{n='Table';e={$Table.title}}, *
+                    $Out | Select-Object @{n='Table';e={$Table.title}},*
                 }
                 
             }
+            
+            # Clean up and return
+            Foreach($Item in $Results)
+            {
+                if($Item.Table -like 'Extended Access Control List*')
+                {
+                    $FilterComment  = $Item.Table.split(' ')[5..$(@($Item.Table.split(' ')).count -3)] -join ' '
+                    $FilterACL      = $Item.Table.split(' ')[4]
+                }
+                elseif($Item.Table -like 'Extended ACL*')
+                {
+                    $FilterComment  = $Item.Table.split(' ')[3..$(@($Item.Table.split(' ')).count -3)] -join ' '
+                    $FilterACL      = $Item.Table.split(' ')[2]
+                }
+                else
+                {
+                    # no idea, so just spit out the raw and forget cutting it up
+                    $FilterComment = $Item.Table
+                }
+                $FilterHostname = $Item.Table.split(' ')[$(@($Item.Table.split(' ')).count -1)]
+                
+                
+                $Out = '' | Select-Object Host, ACL, Rule, Active, Action, Protocol, Source, 'Src Port', Destination, 'Dst Port', Service, Log, 'Issue Title', Comment
+                $Out.Host          = $FilterHostname
+                $Out.ACL           = $FilterACL
+                $Out.Rule          = $Item.Rule
+                $Out.Active        = $Item.Active
+                $Out.Action        = $Item.Action
+                $Out.Protocol      = $Item.Protocol
+                $Out.Source        = $Item.Source
+                $Out.'Src Port'    = $Item.'Src Port'
+                $Out.Destination   = $Item.Destination
+                $Out.'Dst Port'    = $Item.'Dst Port'
+                $Out.Service       = $Item.Service
+                $Out.Log           = $Item.Log
+                $Out.'Issue Title' = $Title
+                $Out.Comment       = $FilterComment
+                $Out
+            }
         
         }
+        
+        
         
     }
     
@@ -64,54 +120,34 @@ param($InputFolder,[switch]$RawOutput)
             {
                 Foreach($SectionDetail in $ReportSection.section)
                 {
+                    # grab the issue title
+                    $SectionTitle = $SectionDetail.title
                     # yes Nipper XML is horrible to work with, could of done this better maybe *shrugs*
                     Foreach($SectionDetailPart in $SectionDetail.section)
                     {
-                        $SectionDetailPart.table | Where-Object { $FitlerTablesToExport -Contains $_.index }
+                        $TablesFiltered = $SectionDetailPart.table | Where-Object { $FitlerTablesToExport -Contains $_.index }
+                        if($TablesFiltered)
+                        {
+                            Build-NipperTable -Tables $TablesFiltered -Title $SectionTitle
+                        }
                     }
                 }            
             }   
         }
-
-        if($RawOutput)
+        
+        if($OutputFolder)
         {
-            Build-NipperTable $Data
-        }else{
-            Foreach($Item in (Build-NipperTable $Data))
-            {
-                if($Item.Table -like 'Extended Access Control List*')
-                {
-                    $FilterComment  = $Item.Table.split(' ')[5..$(@($Item.Table.split(' ')).count -3)] -join ' '
-                }
-                elseif($Item.Table -like 'Extended ACL*')
-                {
-                    $FilterComment  = $Item.Table.split(' ')[3..$(@($Item.Table.split(' ')).count -3)] -join ' '
-                }
-                else
-                {
-                    # no idea, so just spit out the raw and forget cutting it up
-                    $FilterComment = $Item.Table
-                }
-                $FilterHostname = $Item.Table.split(' ')[$(@($Item.Table.split(' ')).count -1)]
-                $FilterACL      = $Item.Table.split(' ')[4]
-                
-                $Out = '' | Select-Object Host, ACL, Rule, Active, Action, Protocol, Source, 'Src Port', Destination, 'Dst Port', Service, Log, Comment
-                $Out.Host         = $FilterHostname
-                $Out.ACL          = $FilterACL
-                $Out.Rule         = $Item.Rule
-                $Out.Active       = $Item.Active
-                $Out.Action       = $Item.Action
-                $Out.Protocol     = $Item.Protocol
-                $Out.Source       = $Item.Source
-                $Out.'Src Port'   = $Item.'Src Port'
-                $Out.Destination  = $Item.Destination
-                $Out.'Dst Port'   = $Item.'Dst Port'
-                $Out.Service      = $Item.Service
-                $Out.Log          = $Item.Log
-                $Out.Comment      = $FilterComment
-                $Out
-
+            # Save to CSV files based on issue type
+            # first all filter rules
+            $Data | Where-Object { $_.'Issue Title' -like 'Filter*Rule*' } | Export-Csv (Join-Path $OutputFolder 'FilterRules.csv') -NoTypeInformation
+            # Now save the rest
+            $Data | Where-Object { $_.'Issue Title' -notlike 'Filter*Rule*' } | Group-Object 'Issue Title' | Foreach {
+                $Item = $_
+                $_.group | Export-Csv (Join-Path $OutputFolder "$($Item.name.Replace(' ','')).csv") -NoTypeInformation
             }
+            
+        }else{
+            $Data
         }
     }
 
