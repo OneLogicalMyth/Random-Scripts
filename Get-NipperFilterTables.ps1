@@ -1,7 +1,77 @@
 # Created by Liam Glanfield
 # 16/03/2017
 # dirty script to extract Nipper filter tables as PS object, so you can export to CSV or HTML etc.
+# update: now includes a function to generate the vulnerability table
+# required input is a folder of Nipper XML files
 
+Function Get-NipperVulnerabilityTable {
+param($InputFolder)
+
+    begin
+    {
+        # grab the new line obj
+        $nl = [Environment]::NewLine
+    
+        try
+        {
+            $Files = Get-ChildItem -Path $InputFolder -Filter *.xml -Recurse
+            # wrap in @() to support PowerShell v2
+            $FileCount = @($Files).Count
+            $i = 1
+        }
+        catch
+        {
+            throw 'InputFolder not found.'
+        }
+        
+    
+        Function Build-NipperTable {
+        param($Tables)
+
+            if(@($Tables).count -eq 0)
+            {
+                return
+            }
+            
+            # Convert XML mess to PS object
+            Foreach($Table IN $Tables)
+            {
+                $Headings = $Table.headings.heading
+                Foreach($Row IN $Table.tablebody.tablerow)
+                {
+                    $Out = '' | Select-Object $Headings
+                    0..(@($Headings).count - 1) | %{ $Out.$($Headings[$_]) = (Get-ItemData ($Row.tablecell[$_].item)) }
+                    $Out
+                }        
+            }
+
+        }    
+    
+    }
+    
+    
+    process
+    {
+        Foreach($File in $Files)
+        {
+            $XML             = [xml](Get-Content $File.fullname)
+            $VulnAudit       = $XML.document.report.part | ?{ $_.title -eq 'Vulnerability Audit' }
+            $VulnConclusions = $VulnAudit.section | ?{ $_.title -eq 'Conclusions' }
+            $VulnTable       = $VulnConclusions.table | ?{ $_.title -eq 'Vulnerability audit summary findings' }
+            $VulnTable = Build-NipperTable -Tables $VulnTable
+
+            Foreach($Row in $VulnTable)
+            {
+                $Out = '' | Select-Object 'Affected Devices', Vulnerability, 'CVSSv2 Score', Rating
+                $Out.'Affected Devices' = $Row.'Affected Devices' -join $nl
+                $Out.Vulnerability      = $Row.Vulnerability
+                $Out.'CVSSv2 Score'     = $Row.'CVSSv2 Score'
+                $Out.Rating             = $Row.Rating
+                $Out
+            }    
+        }
+    }
+}
 
 
 Function Get-NipperFilterTables {
