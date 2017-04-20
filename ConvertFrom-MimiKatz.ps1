@@ -16,6 +16,15 @@ param($MimiKatzOutput,[switch]$IncludeComputer)
             }
         
         }
+        Function Clean-Username {
+        param($userName)
+            if(-not [string]::IsNullOrEmpty($userName))
+            {
+                $Result[$i].trim()
+            }else{
+                '(null)'
+            }
+        }
     }
 
     process
@@ -26,7 +35,7 @@ param($MimiKatzOutput,[switch]$IncludeComputer)
         
         $Output = 1..$Total | Foreach{        
             $Out = '' | Select-Object Username, Domain, NTLM, SHA1, Password
-            $Out.Username  = $Result[$i].trim()
+            $Out.Username  = (Clean-Username -UserName $Result[$i])
             $Out.Domain    = (Extract-Value -RawString $Result[$i + 1] -Item Domain)
             $Out.NTLM      = (Extract-Value -RawString $Result[$i + 1] -Item NTLM)
             $Out.SHA1      = (Extract-Value -RawString $Result[$i + 1] -Item SHA1)
