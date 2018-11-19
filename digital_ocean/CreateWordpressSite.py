@@ -75,6 +75,7 @@ DropletSSH.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 # connect
 print "[*]  Now configuring WordPress, attempting to SSH into the droplet"
+time.sleep(10) # pause for 10 seconds to let the droplet boot
 DropletSSH.connect(droplet_ip, username="root", key_filename=ssh_private_key)
 
 # download wordpress ready for use
@@ -87,6 +88,7 @@ stdin, stdout, stderr = DropletSSH.exec_command(commands)
 print stdout.read()
 
 # todo: configure wordpress and create database
+print "[*]  WordPress installed ok"
 
 # logout
 DropletSSH.close()
